@@ -1,25 +1,22 @@
+from kafka import KafkaProducer
 import json
 import time
 import random
-from kafka import KafkaProducer
 
 producer = KafkaProducer(
-    bootstrap_servers="kafka:9092",
-    value_serializer=lambda v: json.dumps(v).encode("utf-8")
+    bootstrap_servers="localhost:29092",
+    value_serializer=lambda v: json.dumps(v).encode("utf-8"),
 )
 
-drivers = ["VER", "HAM", "LEC"]
-
 while True:
-    event = {
-        "driver": random.choice(drivers),
-        "lap": random.randint(1, 70),
-        "speed": round(random.uniform(180, 340), 2),
-        "throttle": round(random.uniform(0, 100), 1),
-        "brake": round(random.uniform(0, 100), 1),
-        "timestamp": time.time()
+    telemetry = {
+        "car_id": random.randint(1, 20),
+        "speed": random.uniform(120, 340),
+        "rpm": random.randint(9000, 15000),
+        "gear": random.randint(1, 8),
+        "timestamp": time.time(),
     }
 
-    producer.send("f1-telemetry", event)
-    print("Sent:", event)
+    producer.send("telemetry", telemetry)
+    print("Sent:", telemetry)
     time.sleep(1)
