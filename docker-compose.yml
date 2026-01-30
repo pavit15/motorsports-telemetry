@@ -1,6 +1,9 @@
 version: "3.8"
 
 services:
+  # -------------------------------------------------
+  # Zookeeper
+  # -------------------------------------------------
   zookeeper:
     image: confluentinc/cp-zookeeper:7.6.0
     container_name: zookeeper
@@ -10,25 +13,33 @@ services:
     ports:
       - "2181:2181"
 
+  # -------------------------------------------------
+  # Kafka (dual listener: host + docker)
+  # -------------------------------------------------
   kafka:
     image: confluentinc/cp-kafka:7.6.0
     container_name: kafka
     depends_on:
       - zookeeper
     ports:
-      - "9092:9092"
       - "29092:29092"
     environment:
       KAFKA_BROKER_ID: 1
       KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
 
-      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
-      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT
-      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_LISTENERS: INTERNAL://0.0.0.0:9092,EXTERNAL://0.0.0.0:29092
+      KAFKA_ADVERTISED_LISTENERS: INTERNAL://kafka:9092,EXTERNAL://localhost:29092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: INTERNAL:PLAINTEXT,EXTERNAL:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: INTERNAL
+
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
       KAFKA_AUTO_CREATE_TOPICS_ENABLE: "false"
 
+  # -------------------------------------------------
+  # MinIO (S3-compatible storage)
+  # -------------------------------------------------
   minio:
     image: minio/minio:latest
     container_name: minio
@@ -42,14 +53,21 @@ services:
     volumes:
       - minio-data:/data
 
+  # -------------------------------------------------
+  # MinIO bucket bootstrap
+  # -------------------------------------------------
   minio-init:
     image: minio/mc:latest
+    container_name: minio-init
     depends_on:
       - minio
     volumes:
       - ./minio/init.sh:/init.sh
     entrypoint: ["/bin/sh", "/init.sh"]
 
+  # -------------------------------------------------
+  # Flink JobManager
+  # -------------------------------------------------
   flink-jobmanager:
     build: ./flink
     container_name: flink-jobmanager
@@ -58,9 +76,16 @@ services:
       - "8081:8081"
     environment:
       - JOB_MANAGER_RPC_ADDRESS=flink-jobmanager
+      - AWS_ACCESS_KEY_ID=minioadmin
+      - AWS_SECRET_ACCESS_KEY=minioadmin
+      - AWS_REGION=us-east-1
     volumes:
       - ./flink/jobs:/opt/flink/jobs
+      - ./flink/flink-conf.yaml:/opt/flink/conf/flink-conf.yaml
 
+  # -------------------------------------------------
+  # Flink TaskManager
+  # -------------------------------------------------
   flink-taskmanager:
     build: ./flink
     container_name: flink-taskmanager
@@ -69,6 +94,14 @@ services:
     command: taskmanager
     environment:
       - JOB_MANAGER_RPC_ADDRESS=flink-jobmanager
+      - AWS_ACCESS_KEY_ID=minioadmin
+      - AWS_SECRET_ACCESS_KEY=minioadmin
+      - AWS_REGION=us-east-1
+    volumes:
+      - ./flink/flink-conf.yaml:/opt/flink/conf/flink-conf.yaml
 
+# -------------------------------------------------
+# Volumes
+# -------------------------------------------------
 volumes:
   minio-data:

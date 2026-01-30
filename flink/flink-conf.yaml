@@ -1,0 +1,20 @@
+# -------------------------------------------------
+# REQUIRED: JobManager / TaskManager memory
+# -------------------------------------------------
+jobmanager.memory.process.size: 1024m
+taskmanager.memory.process.size: 1024m
+
+taskmanager.numberOfTaskSlots: 1
+
+# -------------------------------------------------
+# S3 / MinIO (S3A)
+# -------------------------------------------------
+s3.endpoint: http://minio:9000
+s3.access-key: minioadmin
+s3.secret-key: minioadmin
+s3.path.style.access: true
+s3.region: us-east-1
+s3.connection.ssl.enabled: false
+jobmanager.rpc.address: flink-jobmanager
+blob.server.port: 6124
+query.server.port: 6125
